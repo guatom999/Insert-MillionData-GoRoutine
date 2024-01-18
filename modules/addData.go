@@ -28,7 +28,7 @@ type (
 
 	Data struct {
 		IDCard    string `json:"id_card"`
-		FullName  string `gorm:"unique" json:"full_name"`
+		FullName  string `json:"full_name"`
 		Age       int    `json:"age"`
 		Address   string `json:"address"`
 		Birthdate string `json:"birth_date"`
@@ -116,7 +116,7 @@ func (r *addData) InsertDataTwo(c echo.Context) error {
 
 	reader := csv.NewReader(file)
 
-	// // Skip header row if present
+	// Skip header row if present
 	reader.Read()
 
 	for {
@@ -145,14 +145,16 @@ func (r *addData) InsertDataTwo(c echo.Context) error {
 
 	var wg sync.WaitGroup
 	wg.Add(10) // Number of goroutines to create
-	chunkSize := 100000
+	chunkSize := 10000
+
+	ch := make(chan int, 10)
 
 	for i := 0; i < 10; i++ {
-		go func(chunk []Data) {
+		go func(chunk []Data, i int) {
 			defer wg.Done()
 
 			// Insert each data item in the chunk here
-			tx := r.db.CreateInBatches(&chunk, 5000)
+			tx := r.db.CreateInBatches(&chunk, 1000)
 
 			if tx.Error != nil {
 
@@ -175,11 +177,23 @@ func (r *addData) InsertDataTwo(c echo.Context) error {
 			// 		panic(err)
 			// 	}
 			// }
+			ch <- i
 
-		}(data[i*chunkSize : (i+1)*chunkSize]) // Divide data into chunks of 100,000
+		}(data[i*chunkSize:(i+1)*chunkSize], i) // Divide data into chunks of 100,000
 	}
 
-	wg.Wait() // Wait for all goroutines to finish
+	successRate := make([]string, 0)
+
+	wg.Wait()
+
+	go func() {
+		for range ch {
+			successRate = append(successRate, "=")
+			fmt.Println(":", successRate)
+		}
+		close(ch) // Close the channel after all goroutines finish
+	}()
+
 	fmt.Println("All data inserted.")
 	elapsed := time.Since(start)
 	log.Printf("Code segment took %s", elapsed)

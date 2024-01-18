@@ -1,0 +1,6 @@
+database:
+  host: 45.136.239.36
+  port: 3306
+  user: root
+  password: P@ssw0rd
+  dbname: onemill
