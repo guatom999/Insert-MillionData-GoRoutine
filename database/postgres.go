@@ -2,10 +2,13 @@ package database
 
 import (
 	"fmt"
+	"log"
 	"onemildata/config"
+	"os"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type (
@@ -36,7 +39,19 @@ func NewPostgresDb(cfg *config.Config) Database {
 		cfg.Db.DbName,
 	)
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	newLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		logger.Config{
+			LogLevel:                  logger.Silent, // Log level
+			IgnoreRecordNotFoundError: true,          // Ignore ErrRecordNotFound error for logger
+			ParameterizedQueries:      false,         // Don't include params in the SQL log
+			Colorful:                  false,         // Disable color
+		},
+	)
+
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: newLogger,
+	})
 	if err != nil {
 		panic("failed to connect database")
 	}

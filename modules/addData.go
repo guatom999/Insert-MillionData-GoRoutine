@@ -149,12 +149,15 @@ func (r *addData) InsertDataTwo(c echo.Context) error {
 
 	ch := make(chan int, 10)
 
+	successRate := make([]string, 10)
+
 	for i := 0; i < 10; i++ {
 		go func(chunk []Data, i int) {
+			fmt.Println("Starting routine", i)
 			defer wg.Done()
 
 			// Insert each data item in the chunk here
-			tx := r.db.CreateInBatches(&chunk, 1000)
+			tx := r.db.CreateInBatches(&chunk, 5000)
 
 			if tx.Error != nil {
 
@@ -179,20 +182,18 @@ func (r *addData) InsertDataTwo(c echo.Context) error {
 			// }
 			ch <- i
 
-		}(data[i*chunkSize:(i+1)*chunkSize], i) // Divide data into chunks of 100,000
+		}(data[i*chunkSize:(i+1)*chunkSize], i)
+
+		go func() {
+			for range ch {
+				successRate = append(successRate, "=")
+				fmt.Println(successRate)
+			}
+			close(ch) // Close the channel after all goroutines finish
+		}()
 	}
 
-	successRate := make([]string, 0)
-
 	wg.Wait()
-
-	go func() {
-		for range ch {
-			successRate = append(successRate, "=")
-			fmt.Println(":", successRate)
-		}
-		close(ch) // Close the channel after all goroutines finish
-	}()
 
 	fmt.Println("All data inserted.")
 	elapsed := time.Since(start)
